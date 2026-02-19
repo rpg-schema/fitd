@@ -22,7 +22,7 @@
     The 12 actions and 3 attributes are modelled as rpg:RuleSetAttribute individuals.""" ;
     dc:source "Blades in the Dark SRD — John Harper, Evil Hat Productions" ;
     owl:imports <https://schema.rpg-schema.org/rpg> ;
-    owl:versionInfo "2.0.0" .
+    owl:versionInfo "1.0.0" .
 
 # ================================================================
 # RULESET ROOT
