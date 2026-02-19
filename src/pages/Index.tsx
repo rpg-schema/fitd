@@ -1,28 +1,32 @@
 import { useEffect, useState } from "react";
 import fitdLogo from "@/assets/fitd-logo.png";
 
-const VERSION = "1.0.0";
+const VERSION = "2.0.0";
 const NAMESPACE = "https://schema.rpg-schema.org/fitd#";
 
 /* ── NAV SECTIONS ── */
 const NAV = [
-  { id: "dice",       label: "Dice System" },
-  { id: "position",  label: "Position" },
-  { id: "effect",    label: "Effect" },
-  { id: "actions",   label: "Actions" },
-  { id: "rolls",     label: "Rolls" },
-  { id: "harm",      label: "Harm & Stress" },
-  { id: "clocks",    label: "Clocks" },
-  { id: "score",     label: "Score" },
-  { id: "teamwork",  label: "Teamwork" },
-  { id: "downtime",  label: "Downtime" },
-  { id: "crew",      label: "Crew" },
-  { id: "crafting",  label: "Crafting" },
+  { id: "resolution",  label: "Resolution" },
+  { id: "position",   label: "Position" },
+  { id: "effect",     label: "Effect" },
+  { id: "attributes", label: "Attributes" },
+  { id: "harm",       label: "Harm & Stress" },
+  { id: "trackers",   label: "Trackers" },
+  { id: "clocks",     label: "Clocks" },
+  { id: "actors",     label: "Actors" },
+  { id: "playbook",   label: "Playbook" },
+  { id: "score",      label: "Score" },
+  { id: "downtime",   label: "Downtime" },
+  { id: "items",      label: "Items" },
 ];
 
-/* ── SECTIONS ── */
-type Card = { title: string; body: string };
-type TermRow = { term: string; type: "owl:Class" | "owl:NamedIndividual" | "owl:ObjectProperty" | "owl:DatatypeProperty"; note: string };
+/* ── TYPES ── */
+type Card  = { title: string; body: string };
+type TermRow = {
+  term: string;
+  type: "owl:Class" | "owl:NamedIndividual" | "owl:ObjectProperty" | "owl:DatatypeProperty" | "rpg:RuleSetAttribute" | "rpg:Tracker" | "rpg:Tag" | "rpg:Phase" | "rpg:LLMArtifactType";
+  note: string;
+};
 type Section = {
   id: string;
   num: string;
@@ -33,248 +37,344 @@ type Section = {
   terms?: TermRow[];
 };
 
+/* ── CONTENT ── */
 const SECTIONS: Section[] = [
   {
-    id: "dice",
+    id: "resolution",
     num: "§01",
-    title: "Dice System",
-    subtitle: "Result levels for every roll in FitD",
-    intro: "Any dice roll produces one of four outcome tiers, determined by the highest die face in the pool. The pool size is 0d (take lowest of two dice), 1d, 2d, or more.",
+    title: "Resolution Model",
+    subtitle: "Roll types and dice pool mechanics",
+    intro: "Every uncertain moment resolves through a pool of d6s. Read the single highest die: 1–3 bad outcome, 4–5 partial success, 6 full success, two or more 6s = critical. Pool ≤ 0: roll 2d6 take the lowest; no critical possible. Six roll types cover every situation.",
     cards: [
-      { title: "Critical", body: "Multiple 6s. The highest die is 6 and at least one other die is also 6. Exceptional outcome beyond full success." },
-      { title: "Full Success", body: "Highest die is 6. A single 6. Things go well — you achieve your goal cleanly." },
-      { title: "Partial Success", body: "Highest die is 4 or 5. You achieve your goal, but with a consequence, cost, or complication." },
-      { title: "Bad Outcome", body: "Highest die is 1–3. Things go poorly. The goal is usually not achieved and complications occur." },
+      { title: "Action Roll", body: "Primary roll. Pre-roll checklist: Goal, Action (one of 12), Position (GM-set), Effect (GM-set). Desperate roll grants 1 XP in the rolled attribute." },
+      { title: "Resistance Roll", body: "Offered by a player to reduce or avoid a consequence. Pool = attribute rating. Cost = 6 − highest die in stress. Critical clears 1 stress instead of costing it." },
+      { title: "Fortune Roll", body: "GM-called roll for off-screen outcomes — faction activity, NPC actions, healing progress, or any uncertain situation where PCs are not directly involved." },
+      { title: "Engagement Roll", body: "Made once per score after planning. Fortune roll starting at 1d. Modifiers for plan advantages/disadvantages. Result: 1–3 Desperate, 4–5 Risky, 6 Controlled, Crit = beyond first obstacle." },
+      { title: "Vice Roll", body: "Downtime roll to clear stress. Pool = lowest attribute rating. Stress cleared = highest die. Overindulge if clearing more than currently marked." },
+      { title: "Downtime Roll", body: "Resolves downtime activities. Pool = relevant action or Tier. Coin may be spent 1-for-1 after rolling to raise result level." },
     ],
     terms: [
-      { term: "fitd:DiceResult",      type: "owl:Class",           note: "Enumerated class; four outcome tiers." },
-      { term: "fitd:Critical",        type: "owl:NamedIndividual",  note: "Multiple 6s." },
-      { term: "fitd:FullSuccess",     type: "owl:NamedIndividual",  note: "Single 6." },
-      { term: "fitd:PartialSuccess",  type: "owl:NamedIndividual",  note: "Highest die 4–5." },
-      { term: "fitd:BadOutcome",      type: "owl:NamedIndividual",  note: "Highest die 1–3." },
+      { term: "fitd:FITDRuleSet",        type: "rpg:RuleSetAttribute",   note: "Root ruleset individual; links all components." },
+      { term: "fitd:DicePoolModel_FITD", type: "owl:NamedIndividual",    note: "Nd6 take highest; ≤0 pool rolls 2d take lowest." },
+      { term: "fitd:Roll",               type: "owl:Class",              note: "owl:equivalentClass rpg:Roll. Abstract superclass." },
+      { term: "fitd:ActionRoll",         type: "owl:Class",              note: "rdfs:subClassOf rpg:Roll. Requires Position + Effect." },
+      { term: "fitd:ResistanceRoll",     type: "owl:Class",              note: "rdfs:subClassOf rpg:Roll. Always reduces consequence." },
+      { term: "fitd:FortuneRoll",        type: "owl:Class",              note: "rdfs:subClassOf rpg:Roll. GM-called; no Position framing." },
+      { term: "fitd:EngagementRoll",     type: "owl:Class",              note: "rdfs:subClassOf fitd:FortuneRoll. Sets score opening." },
+      { term: "fitd:ViceRoll",           type: "owl:Class",              note: "rdfs:subClassOf fitd:DowntimeRoll. Stress relief." },
+      { term: "fitd:DowntimeRoll",       type: "owl:Class",              note: "rdfs:subClassOf rpg:Roll. Coin spend 1-for-1." },
+      { term: "fitd:AssistModifier",     type: "owl:NamedIndividual",    note: "rpg:RollModifier. Teammate takes 1 stress → +1d." },
+      { term: "fitd:PushYourselfModifier", type: "owl:NamedIndividual",  note: "rpg:RollModifier. 2 stress → +1d or +1 effect." },
+      { term: "fitd:DevilsBargainModifier", type: "owl:NamedIndividual", note: "rpg:RollModifier. +1d but complication regardless." },
     ],
   },
   {
     id: "position",
     num: "§02",
     title: "Position",
-    subtitle: "How dangerous is the situation?",
-    intro: "Position is set before an action roll. It governs the severity of consequences on a bad or partial outcome. The GM sets position, but players may push for a better one.",
+    subtitle: "Risk level governing consequence severity",
+    intro: "Position is set before every action roll. It determines how bad the consequences are on a partial or bad outcome. The GM sets it; players may push for a better one. Position is equivalent to rpg:RiskPosition.",
     cards: [
-      { title: "Controlled", body: "You have a dominant advantage. Worst result is a minor complication or reduced effect — no immediate harm." },
-      { title: "Risky", body: "The default position. You're exposed to danger. A bad outcome could mean serious harm or a potent consequence." },
-      { title: "Desperate", body: "You're in serious trouble. A bad outcome brings severe harm. A partial success still carries a stiff cost." },
+      { title: "Controlled", body: "You have the upper hand. Worst result is a minor complication, reduced effect, or trivial cost — no immediate serious harm." },
+      { title: "Risky", body: "The default. Moderate danger. Bad outcome brings real harm or a potent consequence. The typical position for most action rolls." },
+      { title: "Desperate", body: "Serious trouble. Even partial success carries a stiff cost. Bad outcome brings severe harm or catastrophic consequences. Grants 1 XP in the rolled attribute." },
     ],
     terms: [
-      { term: "fitd:Position",     type: "owl:Class",          note: "Enumerated class; three positions." },
-      { term: "fitd:Controlled",   type: "owl:NamedIndividual", note: "Least risky." },
-      { term: "fitd:Risky",        type: "owl:NamedIndividual", note: "Default." },
-      { term: "fitd:Desperate",    type: "owl:NamedIndividual", note: "Most dangerous." },
+      { term: "fitd:Position",      type: "owl:Class",           note: "owl:equivalentClass rpg:RiskPosition." },
+      { term: "fitd:Position_Knob", type: "owl:NamedIndividual", note: "rpg:RiskPosition individual for the ruleset." },
+      { term: "fitd:Controlled",    type: "owl:NamedIndividual", note: "rpg:RiskPosition. Least risky; minor consequences." },
+      { term: "fitd:Risky",         type: "owl:NamedIndividual", note: "rpg:RiskPosition. Default; moderate danger." },
+      { term: "fitd:Desperate",     type: "owl:NamedIndividual", note: "rpg:RiskPosition. High danger; +1 XP on roll." },
     ],
   },
   {
     id: "effect",
     num: "§03",
-    title: "Effect",
-    subtitle: "How much does a successful roll accomplish?",
-    intro: "Effect is determined before the roll alongside position. It defines the scope of impact when you succeed — not whether you succeed.",
+    title: "Effect Level",
+    subtitle: "Magnitude of impact when a roll succeeds",
+    intro: "Effect is assessed alongside Position before the roll. Factors: Potency (how suited is the action?), Quality/Tier (equipment vs obstacle tier), Scale (how many vs how many?). Each factor can independently raise or lower the level. Equivalent to rpg:EffectLevel.",
     cards: [
-      { title: "Great Effect", body: "Exceptional impact. You achieve more than usual — a significant advantage, extra progress, or a striking result." },
-      { title: "Standard Effect", body: "Normal impact. You accomplish what the action is meant to accomplish, no more, no less." },
-      { title: "Limited Effect", body: "Partial impact. You make progress, but only a little — the obstacle resists or the situation constrains." },
+      { title: "Zero Effect", body: "The action accomplishes nothing. A wall cannot be climbed without equipment; a guard cannot be bribed with a reputation like yours." },
+      { title: "Limited Effect", body: "Partial impact. Ticks 1 clock segment. The obstacle resists, or the situation constrains your ability to fully act." },
+      { title: "Standard Effect", body: "Normal expected impact. Ticks 2 clock segments. You accomplish what the action is meant to accomplish." },
+      { title: "Great Effect", body: "Exceptional impact. Ticks 3 clock segments. A significant advantage, extra progress, or a striking result beyond the norm." },
+      { title: "Extreme Effect", body: "Beyond Great. Exceptional circumstances only. Reserved for overwhelming advantages or supernatural power." },
     ],
     terms: [
-      { term: "fitd:Effect",          type: "owl:Class",          note: "Enumerated class; three levels." },
-      { term: "fitd:GreatEffect",     type: "owl:NamedIndividual", note: "Exceptional impact." },
-      { term: "fitd:StandardEffect",  type: "owl:NamedIndividual", note: "Normal impact." },
-      { term: "fitd:LimitedEffect",   type: "owl:NamedIndividual", note: "Partial impact." },
+      { term: "fitd:EffectLevel",      type: "owl:Class",           note: "owl:equivalentClass rpg:EffectLevel." },
+      { term: "fitd:EffectLevel_Knob", type: "owl:NamedIndividual", note: "Assess Potency, Quality/Tier, Scale independently." },
+      { term: "fitd:ZeroEffect",       type: "owl:NamedIndividual", note: "rpg:EffectLevel. 0 clock ticks." },
+      { term: "fitd:LimitedEffect",    type: "owl:NamedIndividual", note: "rpg:EffectLevel. 1 clock tick." },
+      { term: "fitd:StandardEffect",   type: "owl:NamedIndividual", note: "rpg:EffectLevel. 2 clock ticks." },
+      { term: "fitd:GreatEffect",      type: "owl:NamedIndividual", note: "rpg:EffectLevel. 3 clock ticks." },
+      { term: "fitd:ExtremeEffect",    type: "owl:NamedIndividual", note: "rpg:EffectLevel. Exceptional circumstances only." },
     ],
   },
   {
-    id: "actions",
+    id: "attributes",
     num: "§04",
-    title: "Actions & Attributes",
-    subtitle: "Twelve action ratings grouped into three attributes",
-    intro: "Each character has ratings (0–4) in twelve actions. Actions are grouped into three attributes. Resistance rolls use the full attribute (sum of its action ratings).",
+    title: "Attributes & Actions",
+    subtitle: "Three attributes, twelve actions — all as rpg:RuleSetAttribute",
+    intro: "Each character has ratings (0–4) in twelve actions grouped into three parent attributes. The attribute rating equals the number of filled dots in the first (leftmost) column of its grouped actions. Resistance rolls use the attribute pool; XP is tracked per attribute.",
     cards: [
-      { title: "Insight", body: "Hunt · Study · Survey · Tinker. Mental acuity, investigation, and technical skill." },
-      { title: "Prowess", body: "Finesse · Prowl · Skirmish · Wreck. Physical capability, stealth, and combat." },
-      { title: "Resolve", body: "Attune · Command · Consort · Sway. Force of will, social influence, and the arcane." },
+      { title: "Insight", body: "Hunt — track targets, ranged precision. Study — research, detect lies. Survey — observe, anticipate, spot trouble. Tinker — devices, lock-picking, wound treatment." },
+      { title: "Prowess", body: "Finesse — dextrous manipulation, vehicle handling, formal dueling. Prowl — stealth, traversal, backstabbing. Skirmish — close combat, brawling. Wreck — explosive force, sabotage." },
+      { title: "Resolve", body: "Attune — arcane perception, ghost communication. Command — intimidation, leading cohorts. Consort — networking, gaining access. Sway — guile, charm, persuasion, convincing lies." },
     ],
     terms: [
-      { term: "fitd:Action",       type: "owl:Class",               note: "Superclass of all 12 action individuals." },
-      { term: "fitd:Attribute",    type: "owl:Class",               note: "Superclass of Insight, Prowess, Resolve." },
-      { term: "fitd:Insight",      type: "owl:Class",               note: "Hunt, Study, Survey, Tinker." },
-      { term: "fitd:Prowess",      type: "owl:Class",               note: "Finesse, Prowl, Skirmish, Wreck." },
-      { term: "fitd:Resolve",      type: "owl:Class",               note: "Attune, Command, Consort, Sway." },
-      { term: "fitd:actionRating", type: "owl:DatatypeProperty",    note: "xsd:integer, range 0–4." },
-      { term: "fitd:hasAction",    type: "owl:ObjectProperty",      note: "Links Attribute to its Action members." },
-    ],
-  },
-  {
-    id: "rolls",
-    num: "§05",
-    title: "Rolls",
-    subtitle: "Four roll types covering all uncertain outcomes",
-    intro: "Every uncertain moment in FitD resolves through one of four roll types. All rolls produce a DiceResult and are shaped by Position and Effect.",
-    cards: [
-      { title: "Action Roll", body: "The standard roll. Uses one of the 12 action ratings. Governed by Position. Produces a DiceResult that may trigger consequences or progress." },
-      { title: "Resistance Roll", body: "Rolled with an Attribute when a character resists a consequence. Clears or reduces the consequence. Always costs at least 1 stress (even on a critical)." },
-      { title: "Fortune Roll", body: "GM-controlled roll for uncertain off-screen outcomes — faction activity, NPC actions, healing, etc. No action rating required." },
-      { title: "Engagement Roll", body: "Rolled once at the start of every score after planning. Determines the fictional position the crew begins in." },
-    ],
-    terms: [
-      { term: "fitd:ActionRoll",      type: "owl:Class", note: "Uses action rating. Linked to Position." },
-      { term: "fitd:ResistanceRoll",  type: "owl:Class", note: "Uses attribute. Clears/reduces consequence." },
-      { term: "fitd:FortuneRoll",     type: "owl:Class", note: "No action rating; GM-called." },
-      { term: "fitd:EngagementRoll",  type: "owl:Class", note: "Determines opening position of a score." },
-      { term: "fitd:usesPosition",    type: "owl:ObjectProperty", note: "Links roll to its Position." },
-      { term: "fitd:producesResult",  type: "owl:ObjectProperty", note: "Links roll to DiceResult." },
+      { term: "fitd:Insight",  type: "rpg:RuleSetAttribute", note: "Parent attribute. Resists deception/understanding." },
+      { term: "fitd:Prowess",  type: "rpg:RuleSetAttribute", note: "Parent attribute. Resists physical strain/injury." },
+      { term: "fitd:Resolve",  type: "rpg:RuleSetAttribute", note: "Parent attribute. Resists mental/willpower strain." },
+      { term: "fitd:Hunt",     type: "rpg:RuleSetAttribute", note: "schema:isPartOf fitd:Insight. Rating 0-4." },
+      { term: "fitd:Study",    type: "rpg:RuleSetAttribute", note: "schema:isPartOf fitd:Insight. Rating 0-4." },
+      { term: "fitd:Survey",   type: "rpg:RuleSetAttribute", note: "schema:isPartOf fitd:Insight. Rating 0-4." },
+      { term: "fitd:Tinker",   type: "rpg:RuleSetAttribute", note: "schema:isPartOf fitd:Insight. Rating 0-4." },
+      { term: "fitd:Finesse",  type: "rpg:RuleSetAttribute", note: "schema:isPartOf fitd:Prowess. Rating 0-4." },
+      { term: "fitd:Prowl",    type: "rpg:RuleSetAttribute", note: "schema:isPartOf fitd:Prowess. Rating 0-4." },
+      { term: "fitd:Skirmish", type: "rpg:RuleSetAttribute", note: "schema:isPartOf fitd:Prowess. Rating 0-4." },
+      { term: "fitd:Wreck",    type: "rpg:RuleSetAttribute", note: "schema:isPartOf fitd:Prowess. Rating 0-4." },
+      { term: "fitd:Attune",   type: "rpg:RuleSetAttribute", note: "schema:isPartOf fitd:Resolve. Rating 0-4." },
+      { term: "fitd:Command",  type: "rpg:RuleSetAttribute", note: "schema:isPartOf fitd:Resolve. Rating 0-4." },
+      { term: "fitd:Consort",  type: "rpg:RuleSetAttribute", note: "schema:isPartOf fitd:Resolve. Rating 0-4." },
+      { term: "fitd:Sway",     type: "rpg:RuleSetAttribute", note: "schema:isPartOf fitd:Resolve. Rating 0-4." },
     ],
   },
   {
     id: "harm",
-    num: "§06",
-    title: "Harm & Stress",
-    subtitle: "Consequences, conditions, and breaking points",
-    intro: "Harm is the primary physical consequence of danger. Stress is the resource characters spend to push themselves and resist. Trauma marks permanent psychological change.",
+    num: "§05",
+    title: "Harm, Stress & Consequences",
+    subtitle: "Lasting debility, expenditure resource, and five consequence types",
+    intro: "Harm is modelled as rpg:Harm instances with consequenceSeverity 1–4. Trauma conditions are rpg:Condition individuals, permanent and always active as a personality filter. Five consequence types cover all negative outcomes from rolls.",
     cards: [
-      { title: "Harm (Severity 1–2)", body: "Lesser injuries. Level 1: Minor — barely a scratch; no mechanical effect. Level 2: Moderate — a real wound; −1d to relevant actions." },
-      { title: "Harm (Severity 3–4)", body: "Level 3: Serious — you're badly hurt; −1d to all actions. Level 4: Fatal — you die (or would, without intervention)." },
-      { title: "Stress & Push", body: "Push Yourself: spend 2 stress for +1d or a special action. Accept a Devil's Bargain: gain 1 stress for a bonus die from a darker path." },
-      { title: "Trauma", body: "Exceeding 9 stress clears stress and marks a trauma. Trauma conditions (Cold, Haunted, Obsessed, etc.) shape roleplay and may trigger special moves." },
+      { title: "Lesser Harm (L1)", body: "Reduced Effect on rolls directly impeded. Examples: Battered, Drained, Distracted, Scared. Two L1 slots per character." },
+      { title: "Moderate Harm (L2)", body: "−1d on rolls directly impeded. Examples: Exhausted, Deep Cut, Concussion, Panicked. Two L2 slots; full row escalates to L3." },
+      { title: "Severe Harm (L3)", body: "Incapacitated / Need Help for affected activity. Examples: Impaled, Broken Leg, Shot in Chest. One L3 slot." },
+      { title: "Fatal Harm (L4)", body: "Death unless resisted to L3. Examples: Drowned, Stabbed in Heart, Electrocuted. Healing clock (4 segments) fills → all harm drops one level." },
+      { title: "Stress & Trauma", body: "Stress pool 0–9. Spent for Push Yourself (2), Assist (1 per ally), or Resist. At 9: mark trauma, clear all stress. Four traumas = retire or imprisonment." },
+      { title: "Trauma Conditions", body: "Cold · Haunted · Obsessed · Paranoid · Reckless · Soft · Unstable · Vicious. Each is a permanent rpg:Condition individual, granting XP when it causes trouble in play." },
     ],
     terms: [
-      { term: "fitd:Harm",            type: "owl:Class",              note: "Subclass of Consequence. Has severity 1–4." },
-      { term: "fitd:Consequence",     type: "owl:Class",              note: "Superclass: Harm, ReducedEffect, etc." },
-      { term: "fitd:Stress",          type: "owl:Class",              note: "Pool 0–9; spent for Push/Resistance." },
-      { term: "fitd:Trauma",          type: "owl:Class",              note: "Permanent condition from overflow stress." },
-      { term: "fitd:stressLevel",     type: "owl:DatatypeProperty",   note: "xsd:integer 0–9." },
-      { term: "fitd:harmSeverity",    type: "owl:DatatypeProperty",   note: "xsd:integer 1–4." },
-      { term: "fitd:PushYourself",    type: "owl:NamedIndividual",    note: "2 stress → +1d or special action." },
-      { term: "fitd:DevilsBargain",   type: "owl:NamedIndividual",    note: "+1 stress for an extra die." },
+      { term: "fitd:Harm",          type: "owl:Class",           note: "owl:equivalentClass rpg:Harm. Levels 1-4." },
+      { term: "fitd:LesserHarm",    type: "owl:NamedIndividual", note: "rpg:Harm. consequenceSeverity 1. Reduced Effect." },
+      { term: "fitd:ModerateHarm",  type: "owl:NamedIndividual", note: "rpg:Harm. consequenceSeverity 2. -1d." },
+      { term: "fitd:SevereHarm",    type: "owl:NamedIndividual", note: "rpg:Harm. consequenceSeverity 3. Incapacitated." },
+      { term: "fitd:FatalHarm",     type: "owl:NamedIndividual", note: "rpg:Harm. consequenceSeverity 4. Death." },
+      { term: "fitd:Trauma",        type: "owl:Class",           note: "owl:equivalentClass rpg:Condition. Permanent." },
+      { term: "fitd:Cold",          type: "owl:NamedIndividual", note: "rpg:Condition. Flat affect, clipped sentences." },
+      { term: "fitd:Haunted",       type: "owl:NamedIndividual", note: "rpg:Condition. Lost in reverie, seeing things." },
+      { term: "fitd:Obsessed",      type: "owl:NamedIndividual", note: "rpg:Condition. Enthralled by one fixation." },
+      { term: "fitd:Paranoid",      type: "owl:NamedIndividual", note: "rpg:Condition. Imagines danger everywhere." },
+      { term: "fitd:Reckless",      type: "owl:NamedIndividual", note: "rpg:Condition. Dismissive of danger." },
+      { term: "fitd:Soft",          type: "owl:NamedIndividual", note: "rpg:Condition. Sentimental, passive." },
+      { term: "fitd:Unstable",      type: "owl:NamedIndividual", note: "rpg:Condition. Volatile emotional state." },
+      { term: "fitd:Vicious",       type: "owl:NamedIndividual", note: "rpg:Condition. Seeks cruelty as comfort." },
+      { term: "fitd:Consequence",   type: "owl:Class",           note: "owl:equivalentClass rpg:Consequence. Five types." },
+      { term: "fitd:ReducedEffect",   type: "owl:NamedIndividual", note: "rpg:Consequence. Effect drops one level." },
+      { term: "fitd:Complication",    type: "owl:NamedIndividual", note: "rpg:Consequence. New problem/danger clock." },
+      { term: "fitd:LostOpportunity", type: "owl:NamedIndividual", note: "rpg:Consequence. Window closed permanently." },
+      { term: "fitd:WorsePosition",   type: "owl:NamedIndividual", note: "rpg:Consequence. Position degrades one step." },
+      { term: "fitd:HarmConsequence", type: "owl:NamedIndividual", note: "rpg:Consequence. Harm at position severity." },
+    ],
+  },
+  {
+    id: "trackers",
+    num: "§06",
+    title: "Trackers",
+    subtitle: "Numeric state machines for characters and crew",
+    intro: "All persistent numeric state is modelled as rpg:Tracker instances linked to the ruleset. Character trackers: Stress (0–9), Stash (0–40). Crew trackers: Heat (0–9), Wanted Level (0–4), Rep (0–12 minus turf), Tier (0–6).",
+    cards: [
+      { title: "Stress (0–9)", body: "Primary expenditure and risk accumulator. Spent for Push Yourself (2), Resist, or Assist (teammate takes 1). Vice roll clears stress = highest die. At 9: mark trauma, clear all." },
+      { title: "Heat (0–9)", body: "Crew authority attention. Sources: operation type (0/2/4/6) + modifiers: +1 high-profile, +1 hostile turf, +1 at war, +2 killing. At 9: +1 wanted level, clear heat." },
+      { title: "Wanted Level (0–4)", body: "Permanent law-enforcement pressure. Level 4 = life sentence or execution. Reduced only via incarceration entanglement during downtime." },
+      { title: "Rep (0–12)", body: "Crew social capital. Earn base 2 per score ± Tier differential (min 0). Fill the track (12 − turf count) to develop: strengthen hold or pay to raise Tier." },
+      { title: "Stash (0–40)", body: "Character long-term savings. Each 10 stash = 1 lifestyle quality level. 2 stash = 1 coin conversion. Reaching 40 = comfortable retirement." },
+      { title: "Tier (0–6)", body: "Crew power level. Governs quality of all assets, gang scale, cohort quality, and advancement costs. Raise Tier = new Tier × 8 coin; drops hold to Weak." },
+    ],
+    terms: [
+      { term: "fitd:StressTracker",      type: "rpg:Tracker", note: "0-9. At 9 → trauma tick + clear all stress." },
+      { term: "fitd:HeatTracker",        type: "rpg:Tracker", note: "0-9. At 9 → +1 wanted level, clear heat." },
+      { term: "fitd:WantedLevelTracker", type: "rpg:Tracker", note: "0-4. Level 4 = no legal escape." },
+      { term: "fitd:RepTracker",         type: "rpg:Tracker", note: "rpg:ReputationTracker. 0 to 12−turf." },
+      { term: "fitd:StashTracker",       type: "rpg:Tracker", note: "0-40. Per 10 = 1 lifestyle quality." },
+      { term: "fitd:TierTracker",        type: "rpg:Tracker", note: "0-6. Governs asset quality and scale." },
     ],
   },
   {
     id: "clocks",
     num: "§07",
     title: "Progress Clocks",
-    subtitle: "Tracking complex tasks, threats, and long-term projects",
-    intro: "A progress clock is a circle divided into 4, 6, 8, or 12 segments. Segments fill as characters work toward a goal or as a threat advances toward them.",
+    subtitle: "Segmented circles tracking effort, danger, and time — owl:equivalentClass rpg:Clock",
+    intro: "Progress clocks are the primary pacing tool. Named after the obstacle or threat (never the method). Ticked by action roll effect: Great = 3 segments, Standard = 2, Limited = 1. The GM may also tick clocks directly on complications.",
     cards: [
-      { title: "Obstacle Clock", body: "Tracks a single challenge or task. When full, the obstacle is overcome or the task complete." },
-      { title: "Race Clock", body: "Two clocks competing — the crew's progress vs an opposing threat. First to fill wins." },
-      { title: "Project Clock", body: "Long-term activity spanning multiple scores (downtime projects, faction schemes, healing)." },
+      { title: "Danger Clock (6 seg)", body: "Tracks progressive danger. Ticked on complications. Filling it materialises the threat — narrate as a scene change, not a footnote." },
+      { title: "Racing Clock", body: "Two opposed clocks. First to fill wins. Used for competing efforts: the crew vs an alarm, a rival faction vs the same target." },
+      { title: "Linked Clock", body: "Unlocked by filling another clock. Used for layered defences or multi-stage challenges requiring sequential completion." },
+      { title: "Tug-of-War Clock", body: "Ticks both up and down. Back-and-forth struggles: turf wars, political revolutions, contested negotiations." },
+      { title: "Long-Term Project (8 seg)", body: "Multi-downtime effort. May span multiple linked clocks for complex projects: research, crafting, building a contact." },
+      { title: "Healing Clock (4 seg)", body: "Tracks recovery. Filling it drops all character harm one level. Ticked by Recover downtime activities." },
     ],
     terms: [
-      { term: "fitd:ProgressClock",   type: "owl:Class",             note: "Core class for all clock types." },
-      { term: "fitd:clockSize",       type: "owl:DatatypeProperty",  note: "xsd:integer ∈ {4, 6, 8, 12}." },
-      { term: "fitd:segmentsFilled",  type: "owl:DatatypeProperty",  note: "xsd:integer, 0 ≤ n ≤ clockSize." },
-      { term: "fitd:clockType",       type: "owl:ObjectProperty",    note: "Links to Obstacle, Race, or Project individual." },
+      { term: "fitd:ProgressClock",         type: "owl:Class",           note: "owl:equivalentClass rpg:Clock. 4/6/8 segments." },
+      { term: "fitd:DangerClock",           type: "owl:NamedIndividual", note: "rpg:Clock. 6 seg. Complication tracker." },
+      { term: "fitd:RacingClock",           type: "owl:NamedIndividual", note: "rpg:Clock. Two competing clocks." },
+      { term: "fitd:LinkedClock",           type: "owl:NamedIndividual", note: "rpg:Clock. Unlocked by another clock." },
+      { term: "fitd:MissionClock",          type: "owl:NamedIndividual", note: "rpg:Clock. Time window — fill = mission fails." },
+      { term: "fitd:TugOfWarClock",         type: "owl:NamedIndividual", note: "rpg:Clock. Ticks both directions." },
+      { term: "fitd:LongTermProjectClock",  type: "owl:NamedIndividual", note: "rpg:Clock. 8 seg. Multi-downtime effort." },
+      { term: "fitd:FactionGoalClock",      type: "owl:NamedIndividual", note: "rpg:Clock. GM-ticked NPC long-term goal." },
+      { term: "fitd:HealingClock",          type: "owl:NamedIndividual", note: "rpg:Clock. 4 seg. Filling = harm −1 level." },
+    ],
+  },
+  {
+    id: "actors",
+    num: "§08",
+    title: "Actors",
+    subtitle: "Character, Crew, Faction, Cohort — all owl:equivalentClass rpg counterparts",
+    intro: "Actors are entities that take actions in the fiction. Characters are owl:equivalentClass rpg:Character; Crew is owl:equivalentClass rpg:Crew; Faction is owl:equivalentClass rpg:Faction; Cohort is owl:equivalentClass rpg:Creature.",
+    cards: [
+      { title: "Character", body: "Player character. Has playbook, action ratings, stress, trauma, harm, vice, load, coin, stash. Action ratings modelled as rpg:CharacterAttributeValue instances. Trauma as rpg:AppliedState." },
+      { title: "Crew", body: "Collective actor. Tier, hold (Weak/Strong), rep, heat, wanted level, coin, lair, hunting grounds, claims, cohorts. War status halves downtime to 1 action per PC." },
+      { title: "Faction", body: "NPC organisation with Tier, hold, faction clocks, and rpg:Relationship instances. Status: −3 (War) to +3 (Allies). War: +1 heat/score, −1 hold, 1 downtime/PC." },
+      { title: "Cohort", body: "Gang (group NPC) or Expert (single NPC). Quality = crew Tier. Harm track L1–L4; breaks at L3. Edge: +1 effect in specialty. Flaw triggers entanglements." },
+    ],
+    terms: [
+      { term: "fitd:Actor",              type: "owl:Class",           note: "owl:equivalentClass rpg:Actor. Abstract base." },
+      { term: "fitd:Character",          type: "owl:Class",           note: "owl:equivalentClass rpg:Character. PC entity." },
+      { term: "fitd:Crew",               type: "owl:Class",           note: "owl:equivalentClass rpg:Crew. Collective actor." },
+      { term: "fitd:Faction",            type: "owl:Class",           note: "owl:equivalentClass rpg:Faction. NPC org." },
+      { term: "fitd:Cohort",             type: "owl:Class",           note: "owl:equivalentClass rpg:Creature. Gang or Expert." },
+      { term: "fitd:FactionRelationship",type: "owl:Class",           note: "owl:equivalentClass rpg:Relationship. −3 to +3." },
+    ],
+  },
+  {
+    id: "playbook",
+    num: "§09",
+    title: "Playbook, Advancement & Score",
+    subtitle: "Character templates, XP triggers, and crew advancement",
+    intro: "A Playbook is owl:equivalentClass rpg:RuleSetClass. It defines starting action dots, special ability pool, XP trigger, contacts, and starting items. Advancement: fill XP track → new special ability OR advance an attribute track (+1 action dot).",
+    cards: [
+      { title: "Playbook", body: "Character template. Focus and preferred method, not immutable identity. Defines: starting action dots, special ability pool, XP trigger, contacts, load items." },
+      { title: "Special Ability", body: "Rule-breaking power from a playbook or crew. May grant bonus dice, special armor uses, unique mechanics, or immunities. Defines the playbook's mechanical identity." },
+      { title: "XP Trigger", body: "Evaluated at end of session. Standard: Desperate roll (1 XP attribute), expressed beliefs/drives (1–2 XP), vice/trauma struggle (1–2 XP), playbook-specific trigger (1–2 XP)." },
+      { title: "Crew Advance", body: "When crew XP fills: take new crew special ability OR mark two upgrade boxes. Cannot split between both." },
+    ],
+    terms: [
+      { term: "fitd:Playbook",       type: "owl:Class", note: "owl:equivalentClass rpg:RuleSetClass. Character template." },
+      { term: "fitd:SpecialAbility", type: "owl:Class", note: "owl:equivalentClass rpg:SpecialAbility. Rule-breaking power." },
+      { term: "fitd:XPTrigger",      type: "owl:Class", note: "owl:equivalentClass rpg:AdvancementRule. End-of-session." },
+      { term: "fitd:CrewXPTrigger",  type: "owl:NamedIndividual", note: "rpg:AdvancementRule. Crew-level XP evaluation." },
+      { term: "fitd:CrewAdvance",    type: "owl:Class", note: "owl:equivalentClass rpg:Unlock. Special ability or upgrades." },
     ],
   },
   {
     id: "score",
-    num: "§08",
-    title: "Score Lifecycle",
-    subtitle: "Planning, execution, and payoff of a heist",
-    intro: "A score is any dangerous undertaking the crew attempts. Every score passes through four phases: planning, the score itself (with flashbacks available), and payoff.",
+    num: "§10",
+    title: "Score & Flashback",
+    subtitle: "The primary dramatic unit — lifecycle and FITD-exclusive mechanics",
+    intro: "A Score is a FITD-exclusive owl:Class. Lifecycle: choose Plan + Detail → Engagement Roll → Score Phase (action rolls, flashbacks, teamwork) → Outcome → Downtime. Six plan types with required details.",
     cards: [
-      { title: "Planning", body: "Choose an approach (Assault, Deception, Stealth, Occult, Social, Transport) and a detail. This sets the crew's load and opening position." },
-      { title: "Flashback", body: "Any player may call a flashback mid-score to establish a prior action. The GM sets a cost (0–2 stress) and you make the relevant roll." },
-      { title: "Payoff", body: "After the score: earn coin and rep, increase or decrease faction status, assign heat and wanted level, then divide XP and advance." },
+      { title: "Assault Plan", body: "Required detail: point of attack. Direct confrontation — breaking through, overwhelming by force." },
+      { title: "Deception Plan", body: "Required detail: method. Mislead, impersonate, forge, create false pretences." },
+      { title: "Stealth Plan", body: "Required detail: point of infiltration. Avoid notice, move unseen, bypass undetected." },
+      { title: "Occult Plan", body: "Required detail: arcane method. Supernatural approach — ritual, ghost-channel, spirit-binding." },
+      { title: "Social Plan", body: "Required detail: social connection. Leverage relationships, negotiate, manipulate through charm." },
+      { title: "Transport Plan", body: "Required detail: route and means. Move something (or someone) from A to B safely or secretly." },
     ],
     terms: [
-      { term: "fitd:Score",       type: "owl:Class",               note: "The full arc of a dangerous undertaking." },
-      { term: "fitd:Plan",        type: "owl:Class",               note: "Approach + Detail chosen in planning." },
-      { term: "fitd:Approach",    type: "owl:Class",               note: "Six named individuals (Assault, Deception…)." },
-      { term: "fitd:Flashback",   type: "owl:Class",               note: "Retroactive action; costs 0–2 stress." },
-      { term: "fitd:Payoff",      type: "owl:Class",               note: "Coin, rep, heat, XP distribution." },
-    ],
-  },
-  {
-    id: "teamwork",
-    num: "§09",
-    title: "Teamwork",
-    subtitle: "Coordinated actions among crew members",
-    intro: "Four teamwork manoeuvres let characters cooperate. Each is available on any action roll where another character could plausibly help.",
-    cards: [
-      { title: "Assist", body: "Add +1d to another character's roll. You share the risk — if the roll has a bad outcome, you're exposed to any consequences too." },
-      { title: "Lead a Group Action", body: "One character leads; every other PC who participates rolls the same action. The leader takes the best result; extra failures add stress to the leader." },
-      { title: "Protect", body: "Step in to take a consequence for another character. Make a resistance roll or simply absorb the harm directly." },
-      { title: "Set Up", body: "Act first to give the next character better position or increased effect. Requires a successful action roll (not necessarily high)." },
-    ],
-    terms: [
-      { term: "fitd:TeamworkAction",  type: "owl:Class",           note: "Superclass of all four manoeuvres." },
-      { term: "fitd:Assist",          type: "owl:NamedIndividual", note: "+1d; share risk." },
-      { term: "fitd:LeadGroup",       type: "owl:NamedIndividual", note: "Best result; excess failures → leader stress." },
-      { term: "fitd:Protect",         type: "owl:NamedIndividual", note: "Absorb consequence for ally." },
-      { term: "fitd:SetUp",           type: "owl:NamedIndividual", note: "Improve position or effect for next roll." },
+      { term: "fitd:Score",                      type: "owl:Class",           note: "FITD-exclusive. Single operation arc." },
+      { term: "fitd:Flashback",                  type: "owl:Class",           note: "FITD-exclusive. Retroactive action; 0-2 stress." },
+      { term: "fitd:Payoff",                     type: "owl:Class",           note: "FITD-exclusive. Coin, rep, heat, XP." },
+      { term: "fitd:ScoreType_CriminalActivity", type: "owl:NamedIndividual", note: "Core score type for crew." },
+      { term: "fitd:ScoreType_ClaimSeizure",     type: "owl:NamedIndividual", note: "Seize a claim from another faction." },
+      { term: "fitd:ScoreType_SpecialMission",   type: "owl:NamedIndividual", note: "Player-defined goal." },
+      { term: "fitd:AssaultPlan",                type: "owl:NamedIndividual", note: "Detail: point of attack." },
+      { term: "fitd:DeceptionPlan",              type: "owl:NamedIndividual", note: "Detail: method." },
+      { term: "fitd:StealthPlan",                type: "owl:NamedIndividual", note: "Detail: infiltration point." },
+      { term: "fitd:OccultPlan",                 type: "owl:NamedIndividual", note: "Detail: arcane method." },
+      { term: "fitd:SocialPlan",                 type: "owl:NamedIndividual", note: "Detail: social connection." },
+      { term: "fitd:TransportPlan",              type: "owl:NamedIndividual", note: "Detail: route and means." },
+      { term: "fitd:Assist",                     type: "owl:NamedIndividual", note: "Teamwork. 1 stress → +1d; share risk." },
+      { term: "fitd:GroupAction",                type: "owl:NamedIndividual", note: "Teamwork. Best result; excess failures → leader stress." },
+      { term: "fitd:Protect",                    type: "owl:NamedIndividual", note: "Teamwork. Absorb consequence for ally." },
+      { term: "fitd:SetUp",                      type: "owl:NamedIndividual", note: "Teamwork. Improve position or effect for next roll." },
     ],
   },
   {
     id: "downtime",
-    num: "§10",
-    title: "Downtime",
-    subtitle: "Recovery and advancement between scores",
-    intro: "After each score the crew has downtime. Each character gets two downtime activity slots. Activities include personal recovery, projects, and crew upkeep.",
-    cards: [
-      { title: "Indulge Vice", body: "Clear stress up to your vice purveyor's dice result. Overindulgence clears all stress but causes a problem — lose coins, harm yourself, or betray someone." },
-      { title: "Recover", body: "Begin or continue healing physical harm. Requires a healer or a healing environment. Each activity removes a segment from your healing clock." },
-      { title: "Long-Term Project", body: "Work on any clock-based project: crafting, research, building a contact, infiltrating a faction. Make a relevant action roll; fill segments." },
-      { title: "Train & Reduce Heat", body: "Train: mark 1 XP in an action, attribute, or playbook track. Reduce Heat: lower crew heat by 1–2 via bribes, clean-up, or lying low." },
-    ],
-    terms: [
-      { term: "fitd:DowntimeActivity",  type: "owl:Class",           note: "Superclass of all downtime actions." },
-      { term: "fitd:Vice",              type: "owl:Class",           note: "Each character has one vice." },
-      { term: "fitd:Recovery",          type: "owl:NamedIndividual", note: "Heal harm segments." },
-      { term: "fitd:LongTermProject",   type: "owl:NamedIndividual", note: "Advance a project clock." },
-      { term: "fitd:Training",          type: "owl:NamedIndividual", note: "Mark 1 XP." },
-      { term: "fitd:ReduceHeat",        type: "owl:NamedIndividual", note: "Lower crew heat 1–2." },
-    ],
-  },
-  {
-    id: "crew",
     num: "§11",
-    title: "Crew & Factions",
-    subtitle: "The crew sheet, faction web, and claims map",
-    intro: "The crew is the player characters' criminal organization. It has its own tier, hold, reputation, heat, and faction relationships. Factions each have their own tier and disposition toward the crew.",
+    title: "Downtime, Vice & Rituals",
+    subtitle: "Recovery, advancement, and arcane working",
+    intro: "After each score the crew enters downtime. Each character gets two activity slots (one if crew is at war). Downtime activities are rpg:Phase individuals. Vice is the only official stress relief. Rituals are transgressive arcane acts requiring the Ritual special ability.",
     cards: [
-      { title: "Tier & Hold", body: "Tier (0–4) represents the crew's power level — resources, scale, and influence. Hold (weak/strong) determines stability when things go wrong." },
-      { title: "Rep & Heat", body: "Rep tracks notoriety gained from daring scores. Heat tracks how much law enforcement attention the crew has drawn. Wanted level triggers entanglements." },
-      { title: "Faction Standings", body: "Each faction has a status with the crew: −3 (at war) to +3 (allied). Scores affect standings. Allies provide assets; enemies cause complications." },
-      { title: "Claims", body: "The crew's turf: connected nodes on a claims map. Each claim provides an ongoing benefit. Expanding claims requires defeating or negotiating with their current holders." },
+      { title: "Indulge Vice", body: "Vice Roll: pool = lowest attribute rating. Clear stress = highest die. Overindulge if clearing more stress than marked — consequences: Attract Trouble, Brag (+2 heat), Lost (vanish weeks), Tapped (lose purveyor)." },
+      { title: "Recover", body: "Roll healer quality or Tinker. Tick healing clock (4 segments). Fill → all harm drops one level. Downtime tick scale: Crit=5, 6=3, 4-5=2, 1-3=1." },
+      { title: "Long-Term Project", body: "Tick a project clock. Any clock-based goal: crafting, research, building a contact, faction infiltration. Same tick scale as Recover." },
+      { title: "Acquire Asset / Reduce Heat / Train", body: "Acquire: roll Tier, result determines quality tier. Reduce Heat: roll action, same scale. Train: mark 1 XP in an attribute or playbook track." },
+      { title: "Vice Types", body: "Faith · Gambling · Luxury · Obligation · Pleasure · Stupor · Weird. Each has a named purveyor. Not indulging costs stress = trauma count (can cascade to trauma)." },
+      { title: "Ritual", body: "Requires Ritual special ability. Learned via 8-segment LTP clock. Stress cost = magnitude value. Attune roll required. Each ritual defines: effect, price, and belief/fear instilled." },
     ],
     terms: [
-      { term: "fitd:Crew",            type: "owl:Class",              note: "Player character organization." },
-      { term: "fitd:Faction",         type: "owl:Class",              note: "NPC organization with tier and status." },
-      { term: "fitd:Claim",           type: "owl:Class",              note: "Turf node with ongoing benefit." },
-      { term: "fitd:tier",            type: "owl:DatatypeProperty",   note: "xsd:integer 0–4." },
-      { term: "fitd:heat",            type: "owl:DatatypeProperty",   note: "xsd:integer 0–9." },
-      { term: "fitd:wantedLevel",     type: "owl:DatatypeProperty",   note: "xsd:integer 0–4." },
-      { term: "fitd:factionStatus",   type: "owl:DatatypeProperty",   note: "xsd:integer −3 to +3." },
+      { term: "fitd:Vice",            type: "owl:Class",           note: "FITD-exclusive. Stress relief via indulgence." },
+      { term: "fitd:Ritual",          type: "owl:Class",           note: "FITD-exclusive. Arcane working; requires ability." },
+      { term: "fitd:Crafting",        type: "owl:Class",           note: "FITD-exclusive. Downtime item creation." },
+      { term: "fitd:Invention",       type: "owl:Class",           note: "FITD-exclusive. Novel formula; Study LTP." },
+      { term: "fitd:Magnitude",       type: "owl:Class",           note: "FITD-exclusive. 0-6 scale for supernatural power." },
+      { term: "fitd:Claim",           type: "owl:Class",           note: "FITD-exclusive. Turf node; ongoing benefit." },
+      { term: "fitd:IndulgeVice",     type: "rpg:Phase",           note: "Downtime activity. Vice Roll." },
+      { term: "fitd:Recover",         type: "rpg:Phase",           note: "Downtime activity. Ticks healing clock." },
+      { term: "fitd:LongTermProject", type: "rpg:Phase",           note: "Downtime activity. Ticks project clock." },
+      { term: "fitd:AcquireAsset",    type: "rpg:Phase",           note: "Downtime activity. Roll Tier for quality." },
+      { term: "fitd:ReduceHeat",      type: "rpg:Phase",           note: "Downtime activity. Roll action → lower heat." },
+      { term: "fitd:Train",           type: "rpg:Phase",           note: "Downtime activity. Mark 1 XP." },
+      { term: "fitd:AttractTrouble",  type: "owl:NamedIndividual", note: "rpg:Consequence. Overindulgence: extra entanglement." },
+      { term: "fitd:Brag",            type: "owl:NamedIndividual", note: "rpg:Consequence. Overindulgence: +2 heat." },
+      { term: "fitd:Lost",            type: "owl:NamedIndividual", note: "rpg:Consequence. Overindulgence: vanish weeks; return healed." },
+      { term: "fitd:Tapped",          type: "owl:NamedIndividual", note: "rpg:Consequence. Overindulgence: lose purveyor." },
+      { term: "fitd:FaithVice",       type: "rpg:Tag",             note: "Ritual, prayer, devotion." },
+      { term: "fitd:GamblingVice",    type: "rpg:Tag",             note: "Cards, dice, risky bets." },
+      { term: "fitd:LuxuryVice",      type: "rpg:Tag",             note: "Fine food, clothes, extravagance." },
+      { term: "fitd:ObligationVice",  type: "rpg:Tag",             note: "Family, debt, unavoidable person." },
+      { term: "fitd:PleasureVice",    type: "rpg:Tag",             note: "Physical indulgence." },
+      { term: "fitd:StuporVice",      type: "rpg:Tag",             note: "Heavy drink, oblivion-seeking." },
+      { term: "fitd:WeirdVice",       type: "rpg:Tag",             note: "Arcane dabbling, forbidden knowledge." },
     ],
   },
   {
-    id: "crafting",
+    id: "items",
     num: "§12",
-    title: "Cohorts, Crafting & Rituals",
-    subtitle: "NPC assets, alchemicals, arcane power, and magnitude",
-    intro: "Crews can recruit cohorts, craft items and alchemicals, and perform arcane rituals. All of these are scaled by the Magnitude system.",
+    title: "Items, Load & LLMArtifact Types",
+    subtitle: "Equipment, drawbacks, armor, load, and ontology annotation vocabulary",
+    intro: "Items are owl:equivalentClass rpg:Item; possession instances are rpg:ItemInstance on an Actor. Fine quality adds +1 quality on top of Tier. Load is chosen per score (1–9 slots). Three LLMArtifact annotation types structure all rpg:LLMArtifact nodes in the ontology.",
     cards: [
-      { title: "Cohorts", body: "Expert (single skilled NPC) or Gang (group of fighters/specialists). Each has a type, quality equal to crew tier, and edges/flaws that affect rolls." },
-      { title: "Crafting", body: "During downtime, Tinker with materials to create alchemicals, gadgets, or weapons. Roll vs a quality level; fill a project clock. Exceptional items require rare materials." },
-      { title: "Rituals", body: "Attune to perform arcane rituals. Each ritual has a cost (stress, ingredients, time) and a power source. Performing a new ritual requires research first." },
-      { title: "Magnitude", body: "A universal scale (0–6) for comparing the power of effects, areas, durations, and forces. Used to set effect level for large-scale or supernatural actions." },
+      { title: "Item Drawbacks", body: "Complex (multi-stage creation), Conspicuous (+1 heat if used), Consumable (limited uses), Rare (needs rare material), Unreliable (Fortune roll on use), Volatile (dangerous side-effect on activation)." },
+      { title: "Armor Tags", body: "Standard Armor: mark to reduce consequence one level. Heavy Armor: mark after Standard for second reduction. Special Armor: activated by specific special abilities for defined consequence types." },
+      { title: "Load Tags", body: "Light (1–3): faster, less conspicuous — blend with citizens. Normal (4–5): look like a scoundrel. Heavy (6): look like an operative. Encumbered (7–9): very slow movement only." },
+      { title: "LLMArtifact: Descriptor", body: "Explains what an element is, when to use it, and what constraints matter for LLM reasoning. The most common annotation type across the ontology." },
+      { title: "LLMArtifact: SystemPrompt", body: "Full system-prompt text for an Actor node (Character, Crew, Faction), injected directly into LLM context to give the actor its voice and behavioural constraints." },
+      { title: "LLMArtifact: StyleGuide", body: "Tonal and narrative guidance for GM or LLM narration of this element — prose register, what to avoid, how to render the fictional texture of the concept." },
     ],
     terms: [
-      { term: "fitd:Cohort",          type: "owl:Class",              note: "Expert or Gang NPC asset." },
-      { term: "fitd:Expert",          type: "owl:Class",              note: "Single skilled NPC cohort." },
-      { term: "fitd:Gang",            type: "owl:Class",              note: "Group cohort; has scale property." },
-      { term: "fitd:CraftingProject", type: "owl:Class",              note: "Downtime project to create an item." },
-      { term: "fitd:Ritual",          type: "owl:Class",              note: "Arcane working; requires research." },
-      { term: "fitd:Magnitude",       type: "owl:Class",              note: "Universal scale 0–6 for power/scope." },
-      { term: "fitd:magnitude",       type: "owl:DatatypeProperty",   note: "xsd:integer 0–6." },
+      { term: "fitd:Item",                 type: "owl:Class",              note: "owl:equivalentClass rpg:Item. Definition term." },
+      { term: "fitd:ComplexDrawback",      type: "rpg:Tag",                note: "Multi-stage creation (one activity + roll/stage)." },
+      { term: "fitd:ConspicuousDrawback",  type: "rpg:Tag",                note: "+1 heat if used on operation." },
+      { term: "fitd:ConsumableDrawback",   type: "rpg:Tag",                note: "Limited uses; alchemicals default 1." },
+      { term: "fitd:RareDrawback",         type: "rpg:Tag",                note: "Requires rare material to craft." },
+      { term: "fitd:UnreliableDrawback",   type: "rpg:Tag",                note: "Fortune roll on use." },
+      { term: "fitd:VolatileDrawback",     type: "rpg:Tag",                note: "Dangerous side-effect; resistable." },
+      { term: "fitd:StandardArmorTag",     type: "rpg:Tag",                note: "Mark to reduce consequence one level." },
+      { term: "fitd:HeavyArmorTag",        type: "rpg:Tag",                note: "Second reduction; increases load." },
+      { term: "fitd:SpecialArmorTag",      type: "rpg:Tag",                note: "Activated by specific special abilities." },
+      { term: "fitd:LightLoadTag",         type: "rpg:Tag",                note: "1-3 slots. Blend with citizens." },
+      { term: "fitd:NormalLoadTag",        type: "rpg:Tag",                note: "4-5 slots. Look like a scoundrel." },
+      { term: "fitd:HeavyLoadTag",         type: "rpg:Tag",                note: "6 slots. Look like an operative." },
+      { term: "fitd:EncumberedLoadTag",    type: "rpg:Tag",                note: "7-9 slots. Very slow movement." },
+      { term: "fitd:MundaneCreation",      type: "rpg:Tag",                note: "Standard non-magical item." },
+      { term: "fitd:AlchemicalCreation",   type: "rpg:Tag",                note: "Chemical/biological. Consumable required." },
+      { term: "fitd:ArcaneCreation",       type: "rpg:Tag",                note: "Magically enhanced. Strange Methods bonus." },
+      { term: "fitd:SparkCraftCreation",   type: "rpg:Tag",                note: "Electroplasmic gadget. Artificer bonus." },
+      { term: "fitd:ArtifactType_Descriptor",   type: "rpg:LLMArtifactType", note: "What it is, when to use, key constraints." },
+      { term: "fitd:ArtifactType_SystemPrompt", type: "rpg:LLMArtifactType", note: "Full system-prompt for Actor nodes." },
+      { term: "fitd:ArtifactType_StyleGuide",   type: "rpg:LLMArtifactType", note: "Tonal/narrative guidance for narration." },
     ],
   },
 ];
@@ -282,9 +382,8 @@ const SECTIONS: Section[] = [
 /* ─────────────────────────────────────────────── */
 
 export default function Index() {
-  const [activeSection, setActiveSection] = useState("dice");
+  const [activeSection, setActiveSection] = useState("resolution");
 
-  // Scroll-spy
   useEffect(() => {
     const obs = new IntersectionObserver(
       (entries) => {
@@ -317,11 +416,8 @@ export default function Index() {
   return (
     <div className="relative min-h-screen bg-background text-foreground">
 
-      {/* ══════════════════════════════════════════
-          HERO
-      ══════════════════════════════════════════ */}
+      {/* HERO */}
       <section className="relative flex flex-col items-center justify-center text-center px-6 py-32 min-h-[90vh]">
-        {/* top label */}
         <p
           className="uppercase tracking-[0.25em] text-xs mb-10 flex items-center gap-2"
           style={{ color: "hsl(var(--gold))", fontFamily: "var(--font-mono)" }}
@@ -331,7 +427,6 @@ export default function Index() {
           <span className="inline-block w-3 h-px" style={{ background: "hsl(var(--gold))" }} />
         </p>
 
-        {/* System name */}
         <h1
           className="text-[clamp(4rem,14vw,9rem)] leading-none font-black uppercase tracking-tight mb-2"
           style={{
@@ -343,7 +438,6 @@ export default function Index() {
           Forged in the Dark
         </h1>
 
-        {/* Tagline / quote */}
         <p
           className="text-xl md:text-2xl italic max-w-xl mt-6 mb-8 leading-relaxed"
           style={{ fontFamily: "var(--font-display)", color: "hsl(var(--foreground) / 0.75)" }}
@@ -351,9 +445,8 @@ export default function Index() {
           "You've assembled your crew. The target is chosen. What could go wrong?"
         </p>
 
-        {/* Attribution line */}
         <p
-          className="text-xs uppercase tracking-[0.2em] flex items-center gap-3"
+          className="text-xs uppercase tracking-[0.2em] flex items-center gap-3 mb-8"
           style={{ color: "hsl(var(--muted-foreground))", fontFamily: "var(--font-mono)" }}
         >
           <span>John Harper</span>
@@ -362,17 +455,22 @@ export default function Index() {
           <span style={{ color: "hsl(var(--gold-dim))" }}>•</span>
           <span>CC-BY</span>
         </p>
+
+        {/* Version badge */}
+        <p
+          className="text-xs font-mono px-3 py-1 border border-border"
+          style={{ color: "hsl(var(--muted-foreground))", background: "hsl(0 0% 8%)" }}
+        >
+          v{VERSION} · owl:imports &lt;https://schema.rpg-schema.org/rpg&gt; · 1,039 triples
+        </p>
       </section>
 
-      {/* ══════════════════════════════════════════
-          STICKY NAV
-      ══════════════════════════════════════════ */}
+      {/* STICKY NAV */}
       <nav
         className="sticky top-0 z-50 border-b border-border overflow-x-auto"
         style={{ background: "hsl(var(--background) / 0.97)", backdropFilter: "blur(8px)" }}
       >
         <div className="flex items-center min-w-max px-6">
-          {/* Logo / brand */}
           <button
             onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
             className="shrink-0 mr-6 py-3 pr-6 border-r border-border"
@@ -380,7 +478,6 @@ export default function Index() {
             <img src={fitdLogo} alt="FITD" className="h-6 w-auto" style={{ filter: "invert(1) brightness(0.85)" }} />
           </button>
 
-          {/* Section links */}
           <div className="flex items-center">
             {NAV.map((n) => (
               <button
@@ -398,7 +495,6 @@ export default function Index() {
             ))}
           </div>
 
-          {/* TTL download — separated to the right */}
           <div className="ml-auto pl-6 border-l border-border shrink-0">
             <button
               onClick={handleDownload}
@@ -414,18 +510,12 @@ export default function Index() {
         </div>
       </nav>
 
-      {/* ══════════════════════════════════════════
-          CONTENT SECTIONS
-      ══════════════════════════════════════════ */}
+      {/* CONTENT */}
       <main className="max-w-5xl mx-auto px-6 py-16 space-y-24">
         {SECTIONS.map((sec) => (
           <section key={sec.id} id={sec.id} className="scroll-mt-16">
-            {/* Section header */}
             <div className="mb-8">
-              <p
-                className="text-sm mb-1"
-                style={{ color: "hsl(var(--gold))", fontFamily: "var(--font-mono)" }}
-              >
+              <p className="text-sm mb-1" style={{ color: "hsl(var(--gold))", fontFamily: "var(--font-mono)" }}>
                 {sec.num}
               </p>
               <h2
@@ -434,25 +524,20 @@ export default function Index() {
               >
                 {sec.title}
               </h2>
-              <p
-                className="text-base italic"
-                style={{ color: "hsl(var(--foreground) / 0.6)", fontFamily: "var(--font-display)" }}
-              >
+              <p className="text-base italic" style={{ color: "hsl(var(--foreground) / 0.6)", fontFamily: "var(--font-display)" }}>
                 {sec.subtitle}
               </p>
               <div className="mt-4 h-px w-full" style={{ background: "hsl(var(--border))" }} />
             </div>
 
-            {/* Intro */}
             {sec.intro && (
               <p className="mb-8 text-base leading-relaxed" style={{ color: "hsl(var(--foreground) / 0.8)", fontFamily: "var(--font-body)" }}>
                 {sec.intro}
               </p>
             )}
 
-            {/* Cards */}
             {sec.cards && (
-              <div className={`grid gap-4 mb-10 ${sec.cards.length === 4 ? "sm:grid-cols-2" : sec.cards.length === 3 ? "sm:grid-cols-3" : "sm:grid-cols-2"}`}>
+              <div className={`grid gap-4 mb-10 ${sec.cards.length >= 6 ? "sm:grid-cols-2 lg:grid-cols-3" : sec.cards.length === 4 ? "sm:grid-cols-2" : sec.cards.length === 3 ? "sm:grid-cols-3" : "sm:grid-cols-2"}`}>
                 {sec.cards.map((card) => (
                   <div
                     key={card.title}
@@ -461,10 +546,7 @@ export default function Index() {
                     onMouseEnter={e => ((e.currentTarget as HTMLElement).style.borderColor = "hsl(var(--gold-dim))")}
                     onMouseLeave={e => ((e.currentTarget as HTMLElement).style.borderColor = "hsl(var(--border))")}
                   >
-                    <h3
-                      className="text-base font-bold mb-2"
-                      style={{ color: "hsl(var(--foreground))", fontFamily: "var(--font-body)" }}
-                    >
+                    <h3 className="text-base font-bold mb-2" style={{ color: "hsl(var(--foreground))", fontFamily: "var(--font-body)" }}>
                       {card.title}
                     </h3>
                     <p className="text-sm leading-relaxed" style={{ color: "hsl(var(--foreground) / 0.7)", fontFamily: "var(--font-body)" }}>
@@ -475,13 +557,9 @@ export default function Index() {
               </div>
             )}
 
-            {/* Terms table */}
             {sec.terms && (
               <div>
-                <p
-                  className="text-xs uppercase tracking-widest mb-3"
-                  style={{ color: "hsl(var(--muted-foreground))", fontFamily: "var(--font-mono)" }}
-                >
+                <p className="text-xs uppercase tracking-widest mb-3" style={{ color: "hsl(var(--muted-foreground))", fontFamily: "var(--font-mono)" }}>
                   Ontology Terms
                 </p>
                 <table className="w-full text-sm border border-border">
@@ -520,7 +598,7 @@ export default function Index() {
           </section>
         ))}
 
-        {/* ── ONTOLOGY FILE ── */}
+        {/* ONTOLOGY FILE */}
         <section id="ttl" className="scroll-mt-16 pt-8 border-t border-border">
           <p className="text-sm mb-1" style={{ color: "hsl(var(--gold))", fontFamily: "var(--font-mono)" }}>§TTL</p>
           <h2 className="text-4xl font-bold mb-2" style={{ color: "hsl(var(--gold))", fontFamily: "var(--font-display)" }}>Ontology File</h2>
@@ -529,20 +607,17 @@ export default function Index() {
 
           <p className="mb-6 leading-relaxed" style={{ color: "hsl(var(--foreground) / 0.8)", fontFamily: "var(--font-body)" }}>
             <code className="font-mono text-sm px-1.5 py-0.5" style={{ background: "hsl(0 0% 10%)", color: "hsl(var(--gold))" }}>fitd.ttl</code> is a single Turtle file containing the complete
-            OWL 2 ontology — 2,523 lines covering all 12 rule modules above. Load it into
-            Protégé, Apache Jena, ROBOT, or any OWL-compatible tool. Query it via SPARQL using
-            the <code className="font-mono text-sm px-1.5 py-0.5" style={{ background: "hsl(0 0% 10%)", color: "hsl(var(--gold))" }}>fitd:</code> prefix.
+            OWL 2 ontology — 1,039 lines, 12 rule modules, aligned to rpg-schema.org/rpg via{" "}
+            <code className="font-mono text-sm px-1.5 py-0.5" style={{ background: "hsl(0 0% 10%)", color: "hsl(var(--gold))" }}>owl:equivalentClass</code> and{" "}
+            <code className="font-mono text-sm px-1.5 py-0.5" style={{ background: "hsl(0 0% 10%)", color: "hsl(var(--gold))" }}>owl:imports</code>.
+            Load it into Protégé, Apache Jena, ROBOT, or any OWL-compatible tool.
           </p>
 
           <div className="flex flex-col sm:flex-row gap-4 mb-8">
             <button
               onClick={handleDownload}
-              className="inline-flex items-center gap-3 px-6 py-3 border border-gold text-sm uppercase tracking-widest transition-all"
-              style={{
-                fontFamily: "var(--font-mono)",
-                color: "hsl(var(--gold))",
-                borderColor: "hsl(var(--gold))",
-              }}
+              className="inline-flex items-center gap-3 px-6 py-3 border text-sm uppercase tracking-widest transition-all"
+              style={{ fontFamily: "var(--font-mono)", color: "hsl(var(--gold))", borderColor: "hsl(var(--gold))" }}
               onMouseEnter={e => {
                 (e.currentTarget as HTMLElement).style.background = "hsl(var(--gold))";
                 (e.currentTarget as HTMLElement).style.color = "hsl(var(--ink))";
@@ -568,42 +643,36 @@ export default function Index() {
             </a>
           </div>
 
-          {/* Header snippet */}
           <pre
             className="text-xs p-5 overflow-x-auto border border-border"
-            style={{
-              background: "hsl(0 0% 4%)",
-              fontFamily: "var(--font-mono)",
-              lineHeight: 1.8,
-              color: "hsl(var(--foreground) / 0.75)",
-            }}
+            style={{ background: "hsl(0 0% 4%)", fontFamily: "var(--font-mono)", lineHeight: 1.8, color: "hsl(var(--foreground) / 0.75)" }}
           >
-{`@prefix fitd:  <https://schema.rpg-schema.org/fitd#> .
-@prefix owl:   <http://www.w3.org/2002/07/owl#> .
-@prefix rdf:   <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
-@prefix rdfs:  <http://www.w3.org/2000/01/rdf-schema#> .
-@prefix xsd:   <http://www.w3.org/2001/XMLSchema#> .
-@prefix skos:  <http://www.w3.org/2004/02/skos/core#> .
-@prefix dc:    <http://purl.org/dc/elements/1.1/> .
+{`@prefix fitd:   <https://schema.rpg-schema.org/fitd#> .
+@prefix rpg:    <https://schema.rpg-schema.org/rpg#> .
+@prefix owl:    <http://www.w3.org/2002/07/owl#> .
+@prefix rdf:    <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs:   <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd:    <http://www.w3.org/2001/XMLSchema#> .
+@prefix schema: <https://schema.org/> .
+@prefix skos:   <http://www.w3.org/2004/02/skos/core#> .
+@prefix dc:     <http://purl.org/dc/elements/1.1/> .
 
 <https://schema.rpg-schema.org/fitd>
     a owl:Ontology ;
-    dc:title "Forged in the Dark — General Rules Ontology" ;
-    dc:description "OWL ontology for the FitD SRD general rules." ;
-    dc:source "Blades in the Dark SRD — John Harper, Evil Hat" ;
+    dc:title "Forged in the Dark — General Rules Ontology (rpg-schema aligned)" ;
+    dc:source "Blades in the Dark SRD — John Harper, Evil Hat Productions" ;
+    owl:imports <https://schema.rpg-schema.org/rpg> ;
     owl:versionInfo "${VERSION}" .`}
           </pre>
         </section>
       </main>
 
-      {/* ══════════════════════════════════════════
-          FOOTER
-      ══════════════════════════════════════════ */}
+      {/* FOOTER */}
       <footer className="border-t border-border mt-16" style={{ background: "hsl(0 0% 4%)" }}>
         <div className="max-w-5xl mx-auto px-6 py-8 flex flex-col sm:flex-row justify-between items-center gap-4">
           <p className="text-xs" style={{ color: "hsl(var(--muted-foreground))", fontFamily: "var(--font-mono)" }}>
             fitd.rpg-schema.org · v{VERSION} · Based on the{" "}
-            <em>Blades in the Dark</em> SRD by John Harper · Evil Hat Productions
+            <em>Blades in the Dark</em> SRD by John Harper · Evil Hat Productions · CC-BY
           </p>
           <a
             href="https://rpg-schema.org"
@@ -625,10 +694,15 @@ export default function Index() {
 /* ── helpers ── */
 function TypeBadge({ type }: { type: string }) {
   const palette: Record<string, { bg: string; color: string }> = {
-    "owl:Class":             { bg: "hsl(10 70% 35% / 0.25)",  color: "hsl(10 80% 65%)" },
-    "owl:NamedIndividual":   { bg: "hsl(210 60% 40% / 0.2)",  color: "hsl(210 80% 70%)" },
-    "owl:ObjectProperty":    { bg: "hsl(140 50% 30% / 0.2)",  color: "hsl(140 60% 55%)" },
-    "owl:DatatypeProperty":  { bg: "hsl(270 40% 40% / 0.2)",  color: "hsl(270 60% 70%)" },
+    "owl:Class":              { bg: "hsl(10 70% 35% / 0.25)",  color: "hsl(10 80% 65%)" },
+    "owl:NamedIndividual":    { bg: "hsl(210 60% 40% / 0.2)",  color: "hsl(210 80% 70%)" },
+    "owl:ObjectProperty":     { bg: "hsl(140 50% 30% / 0.2)",  color: "hsl(140 60% 55%)" },
+    "owl:DatatypeProperty":   { bg: "hsl(270 40% 40% / 0.2)",  color: "hsl(270 60% 70%)" },
+    "rpg:RuleSetAttribute":   { bg: "hsl(35 60% 30% / 0.25)",  color: "hsl(35 80% 60%)" },
+    "rpg:Tracker":            { bg: "hsl(180 50% 25% / 0.25)", color: "hsl(180 70% 55%)" },
+    "rpg:Tag":                { bg: "hsl(300 40% 30% / 0.2)",  color: "hsl(300 60% 65%)" },
+    "rpg:Phase":              { bg: "hsl(60 50% 25% / 0.2)",   color: "hsl(60 70% 55%)" },
+    "rpg:LLMArtifactType":    { bg: "hsl(0 0% 15%)",           color: "hsl(0 0% 65%)" },
   };
   const s = palette[type] ?? { bg: "hsl(0 0% 15%)", color: "hsl(0 0% 60%)" };
   return (
@@ -640,10 +714,8 @@ function TypeBadge({ type }: { type: string }) {
 
 function DownloadIcon() {
   return (
-    <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-      <polyline points="7 10 12 15 17 10" />
-      <line x1="12" y1="15" x2="12" y2="3" />
+    <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M6 1v7M3 5l3 3 3-3M1 10h10" />
     </svg>
   );
 }
