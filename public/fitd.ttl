@@ -1,5 +1,5 @@
 @prefix fitd:   <https://fitd.rpg-schema.org/ontology#> .
-@prefix rpg:    <https://schema.rpg-schema.org/rpg#> .
+@prefix rpg:    <http://www.rpg-schema.org/1.0/> .
 @prefix owl:    <http://www.w3.org/2002/07/owl#> .
 @prefix rdf:    <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
 @prefix rdfs:   <http://www.w3.org/2000/01/rdf-schema#> .
@@ -21,7 +21,7 @@
     are expressed in the fitd: namespace with rpg: properties and LLMArtifact annotations.
     The 12 actions and 3 attributes are modelled as rpg:RuleSetAttribute individuals.""" ;
     dc:source "Forged in the Dark SRD — John Harper, Evil Hat Productions" ;
-    owl:imports <https://www.rpg-schema.org/ontology> ;
+    owl:imports <http://www.rpg-schema.org/1.0/> ;
     owl:versionInfo "1.0.0" .
 
 # ================================================================
