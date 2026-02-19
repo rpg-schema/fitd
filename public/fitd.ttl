@@ -1,4 +1,4 @@
-@prefix fitd:   <https://schema.rpg-schema.org/fitd#> .
+@prefix fitd:   <https://fitd.rpg-schema.org/ontology#> .
 @prefix rpg:    <https://schema.rpg-schema.org/rpg#> .
 @prefix owl:    <http://www.w3.org/2002/07/owl#> .
 @prefix rdf:    <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
@@ -12,7 +12,7 @@
 # ONTOLOGY HEADER
 # ================================================================
 
-<https://schema.rpg-schema.org/fitd>
+<https://fitd.rpg-schema.org/ontology>
     a owl:Ontology ;
     dc:title "Forged in the Dark — General Rules Ontology (rpg-schema aligned)" ;
     dc:description """OWL ontology for the Forged in the Dark SRD, grounded in rpg-schema.org/rpg.
@@ -20,8 +20,8 @@
     FITD-exclusive concepts (Score, Flashback, Vice, Ritual, Plan, Magnitude, etc.) 
     are expressed in the fitd: namespace with rpg: properties and LLMArtifact annotations.
     The 12 actions and 3 attributes are modelled as rpg:RuleSetAttribute individuals.""" ;
-    dc:source "Blades in the Dark SRD — John Harper, Evil Hat Productions" ;
-    owl:imports <https://schema.rpg-schema.org/rpg> ;
+    dc:source "Forged in the Dark SRD — John Harper, Evil Hat Productions" ;
+    owl:imports <https://www.rpg-schema.org/ontology> ;
     owl:versionInfo "1.0.0" .
 
 # ================================================================
